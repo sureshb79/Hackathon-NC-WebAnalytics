@@ -1,0 +1,90 @@
+CREATE DATABASE WebAnalytics
+GO
+USE WebAnalytics
+GO
+CREATE TABLE ApplicationMaster
+(
+	AppID INT IDENTITY(1,1),
+	AppName VARCHAR(20)
+)
+GO
+CREATE TABLE PageStats
+(
+	PagestatsID BIGINT IDENTITY(1,1) NOT NULL,
+	AppID VARCHAR(50),
+	PageID VARCHAR(50),
+	PageTitle VARCHAR(500),
+	RefererURL VARCHAR(2000),
+	SessionID VARCHAR(200),
+	UserName VARCHAR(100),
+	KeyWords VARCHAR(250),
+	HitDateTime	DateTime,
+	ClientDateTime varchar(20),
+	LoadTime varchar(20), --MilliSeconds
+	IdleTime varchar(20), --Milliseconds
+	[Action] VARCHAR(50), --PageLoad, ItemClick
+	ActionName VARCHAR(250), --ItemName
+	ClientIP VARCHAR(100), 
+	HostAddress VARCHAR(1000),
+	PageURL	VARCHAR(250),
+	Region VARCHAR(250),
+	City VARCHAR(250),
+	Country VARCHAR(250),
+	[Language] VARCHAR(250),
+	Browser VARCHAR(1000),
+	LatLang VARCHAR(200)
+)
+GO
+CREATE PROCEDURE [dbo].[AddPageStat]
+	@AppID VARCHAR(50) = NULL,
+	@PageID  VARCHAR(50) = NULL,
+	@PageTitle VARCHAR(500)='',
+	@RefererURL VARCHAR(2000)='',
+	@Region VARCHAR(250)='',
+	@City VARCHAR(250)='',
+	@Country VARCHAR(250)='',
+	@SessionID VARCHAR(200)='',
+	@ClientIP VARCHAR(100)='',
+	@HostAddress VARCHAR(1000)='',
+	@PageURL	VARCHAR(250)='',
+	@Action VARCHAR(50)='', 
+	@ActionName VARCHAR(250)='',
+	@LoadTime varchar(20) = null,
+	@IdleTime varchar(20) =null,
+	@Language VARCHAR(250)='',
+	@Browser VARCHAR(1000)='',
+	@LatLang varchar(20) = null
+AS
+BEGIN
+	IF @AppID IS NULL AND @PageID IS NULL
+		RETURN 0
+	INSERT INTO PageStats(AppID,PageID,PageTitle,RefererURL,Region,City,Country,SessionID,
+		ClientIP,HostAddress,PageURL,Action,ActionName,LoadTime,IdleTime,Language,Browser,HitDateTime,LatLang)
+	 values(@AppID,@PageID,@PageTitle,@RefererURL,@Region,@City,@Country,@SessionID,
+		@ClientIP,@HostAddress,@PageURL,@Action,@ActionName,@LoadTime,@IdleTime,@Language,@Browser,GETDATE(),@LatLang)
+	RETURN 0
+END
+
+GO
+CREATE PROC AppCompareBar(@compapp1 VARCHAR(200) = 'Default', @compapp2 VARCHAR(200) = 'Main',@AppID varchar(100)='VzPortal')
+AS
+BEGIN
+
+SELECT  isnull(a.timeline,b.timeline)  AS [timeline] ,a.cnt AS 'compare1',b.cnt AS 'compare2',@compapp1 AS App1, @compapp2 AS App2 from 
+(select Count(*) cnt,CONVERT(VARCHAR(3)
+	,DateName( month , DateAdd( month , DATEPART(mm,HitDateTime) , 0 ) - 1 )) +CONVERT(VARCHAR(10),DATEPART(year,HitDateTime)) as timeline FROM Pagestats  WHere  PageID = @compapp1 AND  Action = 'load' AND AppID=@AppID GROUP  BY CONVERT(VARCHAR(3),DateName( month , DateAdd( month , DATEPART(mm,HitDateTime) , 0 ) - 1 ))+CONVERT(VARCHAR(10),DATEPART(year,HitDateTime))) a left join
+ (select Count(*) cnt,CONVERT(VARCHAR(3)
+	,DateName( month , DateAdd( month , DATEPART(mm,HitDateTime) , 0 ) - 1 )) +CONVERT(VARCHAR(10),DATEPART(year,HitDateTime)) as timeline FROM Pagestats  WHere  PageID = @compapp2 AND  Action = 'load' AND AppID= @AppID GROUP  BY CONVERT(VARCHAR(3),DateName( month , DateAdd( month , DATEPART(mm,HitDateTime) , 0 ) - 1 ))+CONVERT(VARCHAR(10),DATEPART(year,HitDateTime))) b
+on a.timeline= ISNULL(b.timeline,a.timeline)
+END
+
+GO
+
+CREATE PROC AreaChartComapreApps(@compapp1 VARCHAR(200) = 'Default', @compapp2 VARCHAR(200) = 'Main',@AppID varchar(100)='VzPortal')
+AS
+BEGIN
+SELECT  isnull(a.timeline,b.timeline)  AS [timeline] ,a.cnt AS 'compare1',b.cnt AS 'compare2',@compapp1 AS App1, @compapp2 AS App2 from 
+(select AVG(CONVERT(INT,ISNULL(LoadTime,'0'))) cnt,CONVERT(VARCHAR(15),DATEPART(YEAR, HitDateTime))+' '+'Q' + CONVERT(VARCHAR(15),DATEPART(QUARTER, HitDateTime)) as timeline FROM Pagestats  WHere  PageID = @compapp1 AND  Action = 'load' AND AppID=@AppID GROUP  BY CONVERT(VARCHAR(15),DATEPART(YEAR, HitDateTime))+' '+'Q' + CONVERT(VARCHAR(15),DATEPART(QUARTER, HitDateTime))) a left join
+(select AVG(CONVERT(INT,ISNULL(LoadTime,'0'))) cnt,CONVERT(VARCHAR(15),DATEPART(YEAR, HitDateTime))+' '+'Q' + CONVERT(VARCHAR(15),DATEPART(QUARTER, HitDateTime)) as timeline FROM Pagestats  WHere  PageID = @compapp2 AND  Action = 'load' AND AppID= @AppID GROUP  BY CONVERT(VARCHAR(15),DATEPART(YEAR, HitDateTime))+' '+'Q' + CONVERT(VARCHAR(15),DATEPART(QUARTER, HitDateTime))) b
+on a.timeline= ISNULL(b.timeline,a.timeline)
+END
